@@ -1,0 +1,7 @@
+.DS_Store
+build/
+jpm_tree/
+*.o
+# Generated quickbin C sources land next to the binary in bin/.
+bin/*.c
+bin
