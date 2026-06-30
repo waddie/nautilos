@@ -27,7 +27,7 @@ jobs:
             target: linux-arm64
     runs-on: ${{ matrix.runner }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Build and install Janet
         run: |
@@ -36,6 +36,14 @@ jobs:
           make -j
           sudo make install PREFIX=/usr/local
           janet -v
+
+      - name: Install jpm
+        # jpm is a separate project; `make install` of Janet does not provide it.
+        run: |
+          git clone --depth 1 https://github.com/janet-lang/jpm
+          cd jpm
+          sudo janet bootstrap.janet
+          command -v jpm
 
       - name: Install spork and project dependencies
         run: |
@@ -48,7 +56,7 @@ jobs:
           jpm --tree=jpm_tree quickbin src/main.janet "bin/nautilos-${{ matrix.target }}"
           file "bin/nautilos-${{ matrix.target }}"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: nautilos-${{ matrix.target }}
           path: bin/nautilos-${{ matrix.target }}
@@ -58,10 +66,10 @@ jobs:
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           path: artifacts
           merge-multiple: true
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: artifacts/nautilos-*
