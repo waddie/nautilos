@@ -2,14 +2,32 @@ name: build
 
 # Janet quickbin links against the host toolchain, so cross-compiling is awkward.
 # Build each target on a native runner instead and collect the binaries.
+#
+# Runner policy (future-proofing):
+#   - Pin every runner to a specific, supported version; never use a *-latest
+#     label. A silent image bump can change the toolchain or, on Linux, raise the
+#     glibc floor of the published binary without warning.
+#   - Prefer recent-stable versions for runway; avoid preview images.
+#   - macOS binary compatibility is decoupled from the builder via
+#     MACOSX_DEPLOYMENT_TARGET, so a newer builder does not raise the minimum
+#     macOS a user needs.
+#   - The monthly scheduled run is an early warning: when a pinned runner is
+#     retired (as macos-13 was on 2025-12-04) it fails here, not at release time.
+#   - There is no rolling arm64 Linux label, so those legs must stay pinned and
+#     get bumped by hand when a version retires.
 
 on:
   push:
     tags: ["v*"]
+  schedule:
+    - cron: "0 9 1 * *" # monthly health check: surface retired runners early
   workflow_dispatch:
 
 env:
   JANET_VERSION: v1.41.2
+  # Minimum macOS the binaries target; clang reads this for both the Janet build
+  # and quickbin. Ignored on Linux. 11.0 is the floor for arm64 macOS.
+  MACOSX_DEPLOYMENT_TARGET: "11.0"
 
 jobs:
   build:
@@ -17,11 +35,16 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - runner: macos-14
+          - runner: macos-15
             target: darwin-arm64
-          - runner: macos-13
+          # macos-15-intel is the standard Intel runner and the LAST x86_64 macOS
+          # image (retires ~2027-08); macos-13 was retired 2025-12-04. After the
+          # sunset, drop this leg or ship a universal2 binary built on arm64.
+          - runner: macos-15-intel
             target: darwin-x64
-          - runner: ubuntu-latest
+          # Linux binaries are glibc-linked, so the builder's glibc sets the floor.
+          # 24.04 (glibc 2.39) is pinned for runway; build on 22.04 to widen reach.
+          - runner: ubuntu-24.04
             target: linux-x64
           - runner: ubuntu-24.04-arm
             target: linux-arm64
@@ -64,7 +87,7 @@ jobs:
   release:
     needs: build
     if: startsWith(github.ref, 'refs/tags/')
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04 # pinned; JS-only job, no binary produced here
     steps:
       - uses: actions/download-artifact@v8
         with:
