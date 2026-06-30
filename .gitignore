@@ -5,3 +5,4 @@ jpm_tree/
 # Generated quickbin C sources land next to the binary in bin/.
 bin/*.c
 bin
+dist/

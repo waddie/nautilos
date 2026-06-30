@@ -15,6 +15,37 @@ long-lived daemon holds one connection and one cloned session for the whole task
 the CLI issues one command per invocation over a unix socket. The daemon is keyed
 by the project directory, so separate projects get separate sessions.
 
+## Install
+
+Both paths put a `nautilos` binary on your PATH for the CLI and MCP surfaces. The
+Claude Code plugin path is separate and needs no install (it bundles its own
+binary selector).
+
+curl:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/waddie/nautilos/main/install.sh | sh
+```
+
+Installs to `~/.local/bin` by default. Override with `NAUTILOS_BIN_DIR`, or pin a
+release with `NAUTILOS_VERSION`:
+
+```sh
+NAUTILOS_BIN_DIR=/usr/local/bin NAUTILOS_VERSION=v0.1.3 \
+  curl -fsSL https://raw.githubusercontent.com/waddie/nautilos/main/install.sh | sh
+```
+
+npm:
+
+```sh
+npm install -g @waddie/nautilos
+```
+
+The right binary for your OS/arch is selected via optional dependencies, so there
+are no install scripts. Prebuilt binaries cover darwin and linux on arm64 and x64;
+Linux builds are glibc-linked (not musl/Alpine). Otherwise build from source (see
+[Build](#build)).
+
 ## Use
 
 A project must already run an nREPL server (started however suits the language).
