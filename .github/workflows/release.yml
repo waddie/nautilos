@@ -124,12 +124,13 @@ jobs:
         with:
           path: artifacts
           merge-multiple: true
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v6
         with:
-          node-version: "22"
+          node-version: "24"
           registry-url: "https://registry.npmjs.org"
       - name: Upgrade npm
-        # Trusted Publishing (OIDC) needs npm >= 11.5.1; Node 22 ships npm 10.
+        # Trusted Publishing (OIDC) needs npm >= 11.5.1; pin to latest so the
+        # bundled npm version does not matter.
         run: npm install -g npm@latest
       - name: Build packages
         run: |

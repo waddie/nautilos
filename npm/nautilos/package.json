@@ -1,6 +1,6 @@
 {
   "name": "@waddie/nautilos",
-  "version": "0.1.3",
+  "version": "0.1.4",
   "description": "Agent-facing nREPL tool: a daemon plus thin CLI that lets an agent drive any nREPL server and keep accrued REPL state across calls.",
   "homepage": "https://github.com/waddie/nautilos",
   "repository": {
@@ -17,9 +17,9 @@
     "node": ">=16"
   },
   "optionalDependencies": {
-    "@waddie/nautilos-darwin-arm64": "0.1.3",
-    "@waddie/nautilos-darwin-x64": "0.1.3",
-    "@waddie/nautilos-linux-x64": "0.1.3",
-    "@waddie/nautilos-linux-arm64": "0.1.3"
+    "@waddie/nautilos-darwin-arm64": "0.1.4",
+    "@waddie/nautilos-darwin-x64": "0.1.4",
+    "@waddie/nautilos-linux-x64": "0.1.4",
+    "@waddie/nautilos-linux-arm64": "0.1.4"
   }
 }

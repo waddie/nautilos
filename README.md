@@ -31,7 +31,7 @@ Installs to `~/.local/bin` by default. Override with `NAUTILOS_BIN_DIR`, or pin 
 release with `NAUTILOS_VERSION`:
 
 ```sh
-NAUTILOS_BIN_DIR=/usr/local/bin NAUTILOS_VERSION=v0.1.3 \
+NAUTILOS_BIN_DIR=/usr/local/bin NAUTILOS_VERSION=v0.1.4 \
   curl -fsSL https://raw.githubusercontent.com/waddie/nautilos/main/install.sh | sh
 ```
 

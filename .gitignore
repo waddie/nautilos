@@ -2,7 +2,8 @@
 build/
 jpm_tree/
 *.o
-# Generated quickbin C sources land next to the binary in bin/.
-bin/*.c
-bin
+# Generated quickbin C sources land next to the binary in bin/. Anchored to the
+# repo root so npm/nautilos/bin/ (the launcher) stays tracked.
+/bin/*.c
+/bin
 dist/

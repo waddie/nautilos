@@ -28,6 +28,8 @@ mkdir -p "$out"
 # --- meta package: copy the launcher, stamp the version onto template ---------
 mkdir -p "$out/nautilos/bin"
 cp "$here/nautilos/bin/nautilos.js" "$out/nautilos/bin/nautilos.js"
+cp "$here/nautilos/README.md" "$out/nautilos/README.md"
+cp "$here/../LICENSE" "$out/nautilos/LICENSE"
 node -e '
   const fs = require("fs");
   const [tpl, ver] = process.argv.slice(1);
@@ -47,6 +49,9 @@ for t in $targets; do
   mkdir -p "$dir"
   cp "$src" "$dir/nautilos-$t"
   chmod +x "$dir/nautilos-$t"
+  cp "$here/../LICENSE" "$dir/LICENSE"
+  printf '# @waddie/nautilos-%s\n\nPrebuilt `nautilos` binary for `%s`. Installed automatically as an optional\ndependency of `@waddie/nautilos` for matching hosts. Do not install directly.\n' \
+    "$t" "$t" > "$dir/README.md"
   node -e '
     const [ver, os, arch, t] = process.argv.slice(1);
     const p = {
