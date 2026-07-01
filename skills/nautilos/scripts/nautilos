@@ -1,10 +1,18 @@
 #!/usr/bin/env sh
-# Wrapper: pick the prebuilt nautilos binary for this OS/arch and exec it.
-# Falls back to a relative root when CLAUDE_PLUGIN_ROOT is unset (e.g. running
-# the script directly out of the repo).
+# Wrapper: locate the prebuilt nautilos binary for this OS/arch and exec it.
+#
+# The plugin ships as a git checkout with no binaries committed (/bin is
+# gitignored), and plugins do not run install.sh or the npm postinstall. So on
+# first use we download the release asset matching this platform and the plugin
+# version, verify it, cache it, and exec. Subsequent runs hit the cached binary.
+#
+# Env overrides:
+#   CLAUDE_PLUGIN_ROOT  plugin root (set by Claude Code; falls back to the repo)
+#   NAUTILOS_VERSION    release tag to fetch, e.g. v0.2.1 (default: plugin.json)
 set -eu
 
 root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"
+repo="waddie/nautilos"
 
 os=$(uname -s)
 arch=$(uname -m)
@@ -19,11 +27,79 @@ case "$arch" in
   *) printf '{"error":"unsupported arch: %s"}\n' "$arch" >&2; exit 1 ;;
 esac
 
-bin="$root/bin/nautilos-$os-$arch"
-if [ ! -x "$bin" ]; then
-  printf '{"error":"no prebuilt binary for %s-%s at %s; build with: jpm quickbin src/main.janet bin/nautilos-%s-%s"}\n' \
-    "$os" "$arch" "$bin" "$os" "$arch" >&2
-  exit 1
+asset="nautilos-$os-$arch"
+
+# A binary already in the plugin (committed or previously fetched) wins; the
+# per-user cache is the fallback for when the plugin dir is read-only.
+cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/nautilos/bin"
+for d in "$root/bin" "$cache_dir"; do
+  if [ -x "$d/$asset" ]; then exec "$d/$asset" "$@"; fi
+done
+
+# --- not present: download the prebuilt binary -------------------------------
+fail() { printf '{"error":"%s"}\n' "$1" >&2; exit 1; }
+hint="build with: jpm quickbin src/main.janet bin/$asset"
+
+# glibc-linked Linux binaries won't run on musl (Alpine); say so rather than
+# fetch something that cannot exec.
+if [ "$os" = linux ] && { [ -f /etc/alpine-release ] || (ldd --version 2>&1 | grep -qi musl); }; then
+  fail "musl libc detected; prebuilt Linux binaries are glibc-linked. $hint"
 fi
 
-exec "$bin" "$@"
+if command -v curl >/dev/null 2>&1; then
+  fetch() { curl -fsSL "$1" -o "$2"; }
+elif command -v wget >/dev/null 2>&1; then
+  fetch() { wget -q "$1" -O "$2"; }
+else
+  fail "no prebuilt binary for $os-$arch and no curl or wget to download one; $hint"
+fi
+
+# Pin to the plugin's version so the fetched binary matches this checkout's
+# protocol: explicit override, else plugin.json, else the latest release.
+version="${NAUTILOS_VERSION:-}"
+if [ -z "$version" ] && [ -f "$root/.claude-plugin/plugin.json" ]; then
+  v=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+        "$root/.claude-plugin/plugin.json" | head -1)
+  [ -n "$v" ] && version="v$v"
+fi
+
+releases="https://github.com/$repo/releases"
+if [ -n "$version" ]; then
+  url="$releases/download/$version/$asset"
+  sums_url="$releases/download/$version/SHA256SUMS"
+else
+  url="$releases/latest/download/$asset"
+  sums_url="$releases/latest/download/SHA256SUMS"
+fi
+
+tmp=$(mktemp -d "${TMPDIR:-/tmp}/nautilos.XXXXXX")
+trap 'rm -rf "$tmp"' EXIT INT TERM
+
+fetch "$url" "$tmp/$asset" || fail "download failed: $url ; $hint"
+[ -s "$tmp/$asset" ] || fail "downloaded file is empty: $url ; $hint"
+
+# Verify against SHA256SUMS when both a checksum tool and the sums file exist.
+if command -v sha256sum >/dev/null 2>&1; then
+  sha_check() { grep " $asset\$" "$1" | sha256sum -c - >/dev/null 2>&1; }
+elif command -v shasum >/dev/null 2>&1; then
+  sha_check() { grep " $asset\$" "$1" | shasum -a 256 -c - >/dev/null 2>&1; }
+else
+  sha_check() { return 2; }
+fi
+if fetch "$sums_url" "$tmp/SHA256SUMS" 2>/dev/null && [ -s "$tmp/SHA256SUMS" ]; then
+  rc=0; ( cd "$tmp" && sha_check SHA256SUMS ) || rc=$?
+  [ "$rc" = 1 ] && fail "checksum verification failed for $asset"
+fi
+
+chmod +x "$tmp/$asset"
+
+# Install into the plugin's bin/ when writable, else the per-user cache.
+dest="$root/bin"
+if ! mkdir -p "$dest" 2>/dev/null || [ ! -w "$dest" ]; then
+  dest="$cache_dir"
+  mkdir -p "$dest" || fail "cannot create cache dir: $dest"
+fi
+mv -f "$tmp/$asset" "$dest/$asset"
+rm -rf "$tmp"; trap - EXIT INT TERM
+
+exec "$dest/$asset" "$@"
