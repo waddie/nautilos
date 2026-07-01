@@ -143,7 +143,8 @@ jobs:
         # optionalDependencies resolve on the registry. Provenance is emitted
         # automatically under Trusted Publishing.
         run: |
+          # Leading ./ so npm treats each arg as a folder, not an owner/repo spec.
           for d in dist/nautilos-*; do
-            npm publish --access public "$d"
+            npm publish --access public "./$d"
           done
-          npm publish --access public dist/nautilos
+          npm publish --access public ./dist/nautilos
