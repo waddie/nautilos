@@ -71,7 +71,13 @@ output reference.
 The same binary serves three integration surfaces over one held session.
 
 - **Claude Code**: the bundled plugin (`.claude-plugin/plugin.json` +
-  `skills/nautilos`).
+  `skills/nautilos`). Install from this repo’s own marketplace:
+
+  ```
+  /plugin marketplace add waddie/nautilos
+  /plugin install nautilos@nautilos
+  ```
+
 - **MCP** (Codex, opencode, Cursor, Zed, Claude Code, ...): run `nautilos mcp`, a
   JSON-RPC 2.0 stdio server exposing `eval`, `lookup`, `complete`, `load_file`,
   `describe`, `interrupt`, `ls_sessions` as tools. Because the MCP process is
