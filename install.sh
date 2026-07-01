@@ -6,7 +6,7 @@
 #
 # Env overrides:
 #   NAUTILOS_BIN_DIR   install directory (default: $XDG_BIN_HOME or ~/.local/bin)
-#   NAUTILOS_VERSION   release tag to pin, e.g. v0.2.1 (default: latest)
+#   NAUTILOS_VERSION   release tag to pin, e.g. v0.2.2 (default: latest)
 set -eu
 
 repo="waddie/nautilos"
@@ -78,8 +78,11 @@ else
 fi
 
 if fetch "$sums_url" "$tmp/SHA256SUMS" 2>/dev/null && [ -s "$tmp/SHA256SUMS" ]; then
-  ( cd "$tmp" && sha_check SHA256SUMS )
-  case $? in
+  # Capture the status with `|| rc=$?`: under `set -e` a bare failing subshell
+  # exits the script before `case $?` can report anything.
+  rc=0
+  ( cd "$tmp" && sha_check SHA256SUMS ) || rc=$?
+  case $rc in
     0) err "checksum ok" ;;
     2) err "no sha256 tool found; skipping checksum verification" ;;
     *) die "checksum verification failed for $asset" ;;

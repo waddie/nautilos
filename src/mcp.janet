@@ -21,9 +21,14 @@
 (import spork/json :as json)
 (import nrepl/client :as nc)
 (import ./discovery)
+(import ./opts)
 
-(def- default-protocol-version "2024-11-05")
-(def- server-version "0.2.1")
+# Newest first: the reply to a request for an unsupported version. All three
+# are equivalent for a tools-only stdio server (no batching, no audio, no
+# elicitation).
+(def- supported-protocol-versions ["2025-06-18" "2025-03-26" "2024-11-05"])
+# Keep in sync with project.janet; the release workflow checks they agree.
+(def- server-version "0.2.2")
 
 (defn- log [& xs] (eprint ;xs))
 
@@ -60,18 +65,23 @@
 
 (defn- ensure-conn
   "Connect and clone a session on first use, or after the connection dropped.
-  Port comes from NAUTILOS_PORT or a .nrepl-port file; host from NAUTILOS_HOST."
+  Port comes from NAUTILOS_PORT or a .nrepl-port file; host from NAUTILOS_HOST.
+  Serialised through `:conn-lock`: connect and clone yield, so two tool-call
+  fibers racing here would otherwise both connect and leak one connection."
   [state]
-  (when (or (nil? (in state :conn)) (get (in state :conn) :closed))
-    (def host (or (os/getenv "NAUTILOS_HOST") "127.0.0.1"))
-    (def port (discovery/resolve-port (os/getenv "NAUTILOS_PORT")))
-    (def conn (nc/connect-mux host port))
-    (def r (nc/clone-session conn))
-    (unless (get r :new-session)
-      (nc/close-mux conn)
-      (error "nREPL server did not return a session on clone"))
-    (put state :conn conn)
-    (put state :session (string (get r :new-session))))
+  (def lock (in state :conn-lock))
+  (ev/take lock)
+  (defer (ev/give lock :token)
+    (when (or (nil? (in state :conn)) (get (in state :conn) :closed))
+      (def host (or (os/getenv "NAUTILOS_HOST") "127.0.0.1"))
+      (def port (discovery/resolve-port (os/getenv "NAUTILOS_PORT")))
+      (def conn (nc/connect-mux host port))
+      (def r (nc/clone-session conn))
+      (unless (get r :new-session)
+        (nc/close-mux conn)
+        (error "nREPL server did not return a session on clone"))
+      (put state :conn conn)
+      (put state :session (string (get r :new-session)))))
   state)
 
 # --- tools ------------------------------------------------------------------
@@ -110,21 +120,13 @@
     :description "List active sessions on the nREPL server."
     :inputSchema {:type "object" :properties {}}}])
 
-(defn- eval-opts
-  [args]
-  (def o @{})
-  (when-let [f (get args "file")] (put o :file f))
-  (when-let [l (get args "line")] (put o :line l))
-  (when-let [c (get args "column")] (put o :column c))
-  o)
-
 (defn- run-tool
   [state name args]
   (ensure-conn state)
   (def conn (in state :conn))
   (def session (in state :session))
   (case name
-    "eval" (nc/eval-code conn session (get args "code" "") (eval-opts args))
+    "eval" (nc/eval-code conn session (get args "code" "") (opts/eval-opts args))
     "lookup" (nc/lookup conn session (get args "sym" ""))
     "complete" (nc/completions conn session (get args "prefix" ""))
     "load_file" (let [p (get args "path")]
@@ -154,9 +156,16 @@
   (def params (get msg "params" {}))
   (cond
     (= method "initialize")
-    (respond state id {:protocolVersion (get params "protocolVersion" default-protocol-version)
-                       :capabilities {:tools {}}
-                       :serverInfo {:name "nautilos" :version server-version}})
+    # Echo the client's version only when we support it; otherwise answer with
+    # our newest so the client can decide (echoing blindly claims support for
+    # anything).
+    (let [pv (get params "protocolVersion")
+          negotiated (if (index-of pv supported-protocol-versions)
+                       pv
+                       (first supported-protocol-versions))]
+      (respond state id {:protocolVersion negotiated
+                         :capabilities {:tools {}}
+                         :serverInfo {:name "nautilos" :version server-version}}))
 
     (= method "notifications/initialized") nil # notification: no reply
 
@@ -179,8 +188,11 @@
   "Run the MCP stdio server loop. Blocks until stdin closes."
   [&]
   (def state @{:wlock (ev/chan 1)
+               :conn-lock (ev/chan 1)
+               :inflight 0
                :out (os/open "/dev/stdout" :w)})
   (ev/give (in state :wlock) :token)
+  (ev/give (in state :conn-lock) :token)
   (def lines (ev/thread-chan 32))
   (ev/thread stdin-reader lines :n)
   (forever
@@ -189,4 +201,21 @@
     (unless (empty? (string/trim line))
       (def msg (try (json/decode line) ([_] (do (log "ignoring unparseable line") nil))))
       # Each request in its own fiber, so an interrupt can overlap an eval.
-      (when msg (ev/spawn (handle msg state))))))
+      # Counted so shutdown below can drain them: fibers don't yield between
+      # the increment and the spawn, so the counter is race-free.
+      (when msg
+        (put state :inflight (+ 1 (in state :inflight)))
+        (ev/spawn
+          (defer (put state :inflight (- (in state :inflight) 1))
+            (handle msg state))))))
+  # stdin closed: the client is done with us. Wait briefly for in-flight
+  # handlers (one may still be creating the connection), then close the held
+  # connection so its reader fiber ends; otherwise the event loop never drains
+  # and the process outlives its client. A handler still blocked on an eval
+  # after the grace period is unblocked by the close itself.
+  (var waited 0)
+  (while (and (pos? (in state :inflight)) (< waited 5))
+    (ev/sleep 0.05)
+    (+= waited 0.05))
+  (when-let [conn (in state :conn)]
+    (protect (nc/close-mux conn))))

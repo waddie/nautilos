@@ -8,7 +8,7 @@
 #
 # Env overrides:
 #   CLAUDE_PLUGIN_ROOT  plugin root (set by Claude Code; falls back to the repo)
-#   NAUTILOS_VERSION    release tag to fetch, e.g. v0.2.1 (default: plugin.json)
+#   NAUTILOS_VERSION    release tag to fetch, e.g. v0.2.2 (default: plugin.json)
 set -eu
 
 root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"
@@ -29,16 +29,30 @@ esac
 
 asset="nautilos-$os-$arch"
 
-# A binary already in the plugin (committed or previously fetched) wins; the
-# per-user cache is the fallback for when the plugin dir is read-only.
+# Pin to the plugin's version so the fetched binary matches this checkout's
+# protocol: explicit override, else plugin.json, else the latest release.
+version="${NAUTILOS_VERSION:-}"
+if [ -z "$version" ] && [ -f "$root/.claude-plugin/plugin.json" ]; then
+  v=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
+        "$root/.claude-plugin/plugin.json" | head -1)
+  [ -n "$v" ] && version="v$v"
+fi
+
+# Cached binaries are version-keyed (nautilos-<os>-<arch>-vX.Y.Z) so a plugin
+# update cannot keep exec'ing a stale release forever; the bare asset name only
+# applies when no version is resolvable.
+bin_name="$asset${version:+-$version}"
+
+# A matching binary already in the plugin (previously fetched, or built there)
+# wins; the per-user cache is the fallback for when the plugin dir is read-only.
 cache_dir="${XDG_CACHE_HOME:-$HOME/.cache}/nautilos/bin"
 for d in "$root/bin" "$cache_dir"; do
-  if [ -x "$d/$asset" ]; then exec "$d/$asset" "$@"; fi
+  if [ -x "$d/$bin_name" ]; then exec "$d/$bin_name" "$@"; fi
 done
 
 # --- not present: download the prebuilt binary -------------------------------
 fail() { printf '{"error":"%s"}\n' "$1" >&2; exit 1; }
-hint="build with: jpm quickbin src/main.janet bin/$asset"
+hint="build with: jpm quickbin src/main.janet bin/$bin_name"
 
 # glibc-linked Linux binaries won't run on musl (Alpine); say so rather than
 # fetch something that cannot exec.
@@ -52,15 +66,6 @@ elif command -v wget >/dev/null 2>&1; then
   fetch() { wget -q "$1" -O "$2"; }
 else
   fail "no prebuilt binary for $os-$arch and no curl or wget to download one; $hint"
-fi
-
-# Pin to the plugin's version so the fetched binary matches this checkout's
-# protocol: explicit override, else plugin.json, else the latest release.
-version="${NAUTILOS_VERSION:-}"
-if [ -z "$version" ] && [ -f "$root/.claude-plugin/plugin.json" ]; then
-  v=$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' \
-        "$root/.claude-plugin/plugin.json" | head -1)
-  [ -n "$v" ] && version="v$v"
 fi
 
 releases="https://github.com/$repo/releases"
@@ -99,7 +104,11 @@ if ! mkdir -p "$dest" 2>/dev/null || [ ! -w "$dest" ]; then
   dest="$cache_dir"
   mkdir -p "$dest" || fail "cannot create cache dir: $dest"
 fi
-mv -f "$tmp/$asset" "$dest/$asset"
+# Drop superseded versions of this asset (a bare unversioned binary is left
+# alone: it may be a local build, and the lookup never selects it anyway once
+# a version resolves).
+rm -f "$dest/$asset-v"*
+mv -f "$tmp/$asset" "$dest/$bin_name"
 rm -rf "$tmp"; trap - EXIT INT TERM
 
-exec "$dest/$asset" "$@"
+exec "$dest/$bin_name" "$@"

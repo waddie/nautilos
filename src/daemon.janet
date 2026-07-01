@@ -14,21 +14,7 @@
 (import nrepl/client :as nc)
 (import ./ipc)
 (import ./discovery)
-
-(defn- eval-opts
-  [req]
-  (def o @{})
-  (when-let [f (get req "file")] (put o :file f))
-  (when-let [l (get req "line")] (put o :line l))
-  (when-let [c (get req "column")] (put o :column c))
-  o)
-
-(defn- load-opts
-  [req]
-  (def o @{})
-  (when-let [n (get req "file-name")] (put o :file-name n))
-  (when-let [p (get req "file-path")] (put o :file-path p))
-  o)
+(import ./opts)
 
 (defn- with-session
   "Ensure the result carries the daemon's session id for context."
@@ -46,13 +32,16 @@
     "eval"
     (do
       (put state :busy true)
-      (def r (nc/eval-code conn session (get req "code" "") (eval-opts req)))
-      (put state :busy false)
-      (with-session r session))
+      # defer, not sequential puts: an eval that throws must not leave the
+      # daemon reporting busy forever.
+      (defer (put state :busy false)
+        (with-session
+          (nc/eval-code conn session (get req "code" "") (opts/eval-opts req))
+          session)))
 
     "load-file"
     (with-session
-      (nc/load-file-code conn session (get req "contents" "") (load-opts req))
+      (nc/load-file-code conn session (get req "contents" "") (opts/load-opts req))
       session)
 
     "lookup" (with-session (nc/lookup conn session (get req "sym" "")) session)
@@ -100,7 +89,21 @@
                        (defer (protect (:close stream))
                          (def req (ipc/read-msg stream))
                          (when req
-                           (ipc/write-msg stream (process req state))
+                           # A dead upstream connection must be caught up front: a
+                           # write on it can succeed silently (first write after peer
+                           # death) with the reader fiber already gone, so the op
+                           # would block forever awaiting responses. And a throw from
+                           # an op must still produce a response and still reach the
+                           # teardown check below; otherwise the daemon lingers on
+                           # the socket and every later call fails.
+                           (def res
+                             (cond
+                               (get (in state :conn) :closed)
+                               @{:error "nREPL server connection closed; daemon shutting down, retry to start fresh"}
+
+                               (try (process req state)
+                                 ([err] @{:error (if (string? err) err (describe err))}))))
+                           (protect (ipc/write-msg stream res))
                            # End the accept loop on an explicit shutdown, or if the upstream
                            # nREPL connection has dropped (the next CLI call then starts fresh).
                            (when (or (in state :shutdown) (get (in state :conn) :closed))

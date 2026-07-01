@@ -9,9 +9,42 @@
 
 (import nrepl/client :as nc)
 
-(defn- runtime-dir
+(var- uid-cache nil)
+
+(defn- uid
+  "This process's numeric uid, via `id -u` (Janet has no os/getuid). Cached."
   []
-  (or (os/getenv "NAUTILOS_RUNTIME_DIR") "/tmp"))
+  (when (nil? uid-cache)
+    (def p (os/spawn ["id" "-u"] :p {:out :pipe}))
+    (def out (ev/read (in p :out) :all))
+    (os/proc-wait p)
+    (set uid-cache (scan-number (string/trim (string out)))))
+  uid-cache)
+
+(defn- own-tmp-dir
+  "A per-user 0700 directory under /tmp. Socket and log paths are predictable,
+  so a shared /tmp invites symlink attacks on the log and squatting on the
+  socket; a directory we own and nobody else can traverse closes both. Refuses
+  a path that exists but is not our directory (lstat also rejects symlinks)."
+  []
+  (def dir (string "/tmp/nautilos-" (uid)))
+  (if (os/mkdir dir)
+    (os/chmod dir 8r700)
+    (do
+      (def st (os/lstat dir))
+      (unless (and st (= :directory (in st :mode)) (= (uid) (in st :uid)))
+        (errorf "%s exists but is not a directory owned by uid %d; set NAUTILOS_RUNTIME_DIR"
+                dir (uid)))
+      (os/chmod dir 8r700)))
+  dir)
+
+(defn- runtime-dir
+  "Directory for the daemon's socket and log: NAUTILOS_RUNTIME_DIR wins, then
+  XDG_RUNTIME_DIR (already per-user and 0700), then a per-user dir under /tmp."
+  []
+  (or (os/getenv "NAUTILOS_RUNTIME_DIR")
+      (os/getenv "XDG_RUNTIME_DIR")
+      (own-tmp-dir)))
 
 (defn project-key
   "Stable short key for `dir` (defaults to cwd). `hash` is deterministic across

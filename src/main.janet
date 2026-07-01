@@ -1,7 +1,7 @@
 ###
 ### main.janet
 ###
-### Entry point. Parses `nrepl <subcommand> [args] [--host H] [--port P]` and
+### Entry point. Parses `nautilos <subcommand> [args] [--host H] [--port P]` and
 ### dispatches to the daemon (the long-lived `daemon` subcommand) or the client
 ### (every other subcommand, which auto-starts the daemon as needed).
 
@@ -35,7 +35,7 @@
 
 (defn- usage
   []
-  (eprint "usage: nrepl <command> [args] [--host H] [--port P]")
+  (eprint "usage: nautilos <command> [args] [--host H] [--port P]")
   (eprint "commands: eval lookup complete load-file describe ls-sessions interrupt up down status daemon mcp"))
 
 (defn main

@@ -44,9 +44,11 @@ holds the session directly with no daemon.
   fiber, preserving interrupt-while-eval. Holds the session for the process life.
 - `src/cli.janet`: liveness-checks the socket, auto-starts a fully detached
   daemon with `nohup <self> daemon ... &`, sends one request, prints the result.
-- `src/discovery.janet`: `.nrepl-port` lookup and per-project socket/log paths
-  under `/tmp` (override with `NAUTILOS_RUNTIME_DIR`). Socket paths are kept short
-  because unix paths are length-limited (~104 bytes on macOS).
+- `src/discovery.janet`: `.nrepl-port` lookup and per-project socket/log paths.
+  The runtime dir is `NAUTILOS_RUNTIME_DIR`, else `XDG_RUNTIME_DIR`, else a
+  per-user 0700 dir under `/tmp` (shared `/tmp` invites symlink and socket-squat
+  attacks). Socket paths are kept short because unix paths are length-limited
+  (~104 bytes on macOS).
 - `src/ipc.janet`: one newline-delimited JSON object each way per connection.
 
 ## Dependency

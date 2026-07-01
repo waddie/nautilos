@@ -10,7 +10,8 @@
 
 (defn read-msg
   "Read one newline-delimited JSON object from `stream`. Returns the decoded
-  table, or nil on EOF before any complete message."
+  table, or nil on EOF before any complete message or on unparseable input
+  (a throw here would kill the daemon's handler fiber with no response sent)."
   [stream]
   (def buf @"")
   (var nl nil)
@@ -20,10 +21,13 @@
     (def chunk (try (net/read stream 4096) ([_] nil)))
     (if (nil? chunk) (break))
     (buffer/push-string buf chunk))
-  (cond
-    nl (json/decode (string/slice buf 0 nl))
-    (empty? buf) nil
-    (json/decode (string buf))))
+  (def payload
+    (cond
+      nl (string/slice buf 0 nl)
+      (empty? buf) nil
+      (string buf)))
+  (when payload
+    (try (json/decode payload) ([_] nil))))
 
 (defn write-msg
   "Encode `data` as JSON and write it newline-delimited to `stream`."

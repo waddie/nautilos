@@ -1,7 +1,6 @@
 name: build
 permissions:
   contents: read
-  pull-requests: write
 
 # Janet quickbin links against the host toolchain, so cross-compiling is awkward.
 # Build each target on a native runner instead and collect the binaries.
@@ -87,8 +86,36 @@ jobs:
           name: nautilos-${{ matrix.target }}
           path: bin/nautilos-${{ matrix.target }}
 
+  check-versions:
+    # The version is declared in four places; a release with them out of sync
+    # ships a binary that reports the wrong version or npm packages that do not
+    # resolve. Fail the release instead.
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v7
+      - name: Versions match the tag
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          fail=0
+          check() {
+            if [ "$2" != "$tag" ]; then
+              echo "::error::$1 declares version '$2' but the tag is '$tag'"
+              fail=1
+            fi
+          }
+          check project.janet \
+            "$(sed -n 's/.*:version "\([^"]*\)".*/\1/p' project.janet | head -1)"
+          check .claude-plugin/plugin.json \
+            "$(sed -n 's/.*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' .claude-plugin/plugin.json | head -1)"
+          check npm/nautilos/package.json \
+            "$(sed -n 's/^[[:space:]]*"version"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' npm/nautilos/package.json | head -1)"
+          check src/mcp.janet \
+            "$(sed -n 's/.*server-version "\([^"]*\)".*/\1/p' src/mcp.janet | head -1)"
+          exit $fail
+
   release:
-    needs: build
+    needs: [build, check-versions]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04 # pinned; JS-only job, no binary produced here
     permissions:
@@ -112,7 +139,7 @@ jobs:
             artifacts/SHA256SUMS
 
   publish-npm:
-    needs: build
+    needs: [build, check-versions]
     if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-24.04 # pinned; JS-only job, no binary produced here
     permissions:
