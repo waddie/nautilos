@@ -23,7 +23,7 @@
 (import ./discovery)
 
 (def- default-protocol-version "2024-11-05")
-(def- server-version "0.1.5")
+(def- server-version "0.2.0")
 
 (defn- log [& xs] (eprint ;xs))
 

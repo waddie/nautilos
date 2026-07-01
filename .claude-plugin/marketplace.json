@@ -1,0 +1,14 @@
+{
+  "name": "nautilos",
+  "description": "Agent-facing nREPL tool for Claude Code.",
+  "owner": {
+    "name": "Tom Waddington"
+  },
+  "plugins": [
+    {
+      "name": "nautilos",
+      "source": "./",
+      "description": "Agent-facing nREPL tool. A small native daemon plus CLI lets an agent evaluate code in any nREPL server (Clojure, babashka, Janet, Steel, basilisp, ...) and keep accrued REPL state across calls."
+    }
+  ]
+}
