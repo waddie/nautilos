@@ -28,7 +28,7 @@
 # elicitation).
 (def- supported-protocol-versions ["2025-06-18" "2025-03-26" "2024-11-05"])
 # Keep in sync with project.janet; the release workflow checks they agree.
-(def- server-version "0.2.2")
+(def- server-version "0.3.0")
 
 (defn- log [& xs] (eprint ;xs))
 
@@ -91,6 +91,8 @@
     :description "Evaluate code in the held nREPL session. State (defs, imports) persists across calls."
     :inputSchema {:type "object"
                   :properties {:code {:type "string" :description "Code to evaluate."}
+                               :input {:type "string"
+                                       :description "Input pre-supplied to code that reads it (a trailing newline is added if missing). Unconsumed input stays buffered for the next read."}
                                :file {:type "string"}
                                :line {:type "integer"}
                                :column {:type "integer"}}
@@ -116,6 +118,10 @@
    {:name "interrupt"
     :description "Cancel the eval currently running on the session."
     :inputSchema {:type "object" :properties {}}}
+   {:name "stdin"
+    :description "Deliver input to an eval blocked on need-input (or buffer it ahead of demand). Empty or absent input signals end-of-input. Not all servers support the stdin op; gate with describe."
+    :inputSchema {:type "object"
+                  :properties {:input {:type "string" :description "Input text; a trailing newline is added if missing."}}}}
    {:name "ls_sessions"
     :description "List active sessions on the nREPL server."
     :inputSchema {:type "object" :properties {}}}])
@@ -126,7 +132,13 @@
   (def conn (in state :conn))
   (def session (in state :session))
   (case name
-    "eval" (nc/eval-code conn session (get args "code" "") (opts/eval-opts args))
+    "eval" (do
+             # Pre-supplied input goes ahead of the eval; the server buffers
+             # it, so code that reads input completes without a need-input
+             # round trip.
+             (when-let [input (get args "input")]
+               (nc/send-stdin conn session (opts/stdin-input input)))
+             (nc/eval-code conn session (get args "code" "") (opts/eval-opts args)))
     "lookup" (nc/lookup conn session (get args "sym" ""))
     "complete" (nc/completions conn session (get args "prefix" ""))
     "load_file" (let [p (get args "path")]
@@ -134,6 +146,7 @@
                                      {:file-name (last (string/split "/" p)) :file-path p}))
     "describe" (nc/describe conn)
     "interrupt" (nc/call conn {:op "interrupt" :session session})
+    "stdin" (nc/send-stdin conn session (opts/stdin-input (get args "input" "")))
     "ls_sessions" (nc/ls-sessions conn)
     (errorf "unknown tool: %s" name)))
 

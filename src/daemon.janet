@@ -35,6 +35,10 @@
       # defer, not sequential puts: an eval that throws must not leave the
       # daemon reporting busy forever.
       (defer (put state :busy false)
+        # Pre-supplied input is sent ahead of the eval; the server buffers it,
+        # so code that reads input completes without a need-input round trip.
+        (when-let [input (get req "input")]
+          (nc/send-stdin conn session (opts/stdin-input input)))
         (with-session
           (nc/eval-code conn session (get req "code" "") (opts/eval-opts req))
           session)))
@@ -52,8 +56,17 @@
     # No interrupt-id: the server cancels whatever eval is running on the session.
     "interrupt" (with-session (nc/call conn {:op "interrupt" :session session}) session)
 
+    # Answers an eval blocked on need-input, or buffers input ahead of demand.
+    # An empty payload signals end-of-input.
+    "stdin"
+    (with-session (nc/send-stdin conn session (opts/stdin-input (get req "input" "")))
+      session)
+
     "status" @{:ok true :session session :host (in state :host)
-               :port (in state :port) :busy (in state :busy)}
+               :port (in state :port) :busy (in state :busy)
+               # True when the in-flight eval is blocked awaiting a `stdin` op
+               # (distinguishes a stdin-wait from a slow computation).
+               :need-input (truthy? (get conn :need-input))}
 
     "shutdown" (do (put state :shutdown true) @{:ok true})
 

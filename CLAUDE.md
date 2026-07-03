@@ -86,4 +86,8 @@ speak JSON-RPC to `nautilos mcp` (initialize, tools/list, tools/call).
 - The daemon tears down when the upstream connection drops; the next CLI call
   auto-starts a fresh one. Do not assume a daemon outlives its server.
 - Portable ops: `eval`, `clone`, `describe`, `load-file`. `lookup`, `complete`,
-  `interrupt` vary per server. Prefer `describe` to gate optional ops.
+  `interrupt`, `stdin` vary per server (babashka lacks `stdin`). Prefer
+  `describe` to gate optional ops.
+- Code that reads input blocks on a `need-input` status until a `stdin` op
+  arrives. Pre-supplied input (`eval --input`) is sent ahead of the eval and
+  buffered by the server; unconsumed input feeds the session's next read.

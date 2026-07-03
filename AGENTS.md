@@ -11,7 +11,7 @@ There are two ways to drive it; pick whichever your harness has wired up.
 ## As MCP tools (preferred)
 
 If `nautilos` is registered as an MCP server, you get tools: `eval`, `lookup`,
-`complete`, `load_file`, `describe`, `interrupt`, `ls_sessions`. The server holds
+`complete`, `load_file`, `describe`, `interrupt`, `stdin`, `ls_sessions`. The server holds
 one session for the whole session, so `eval {"code":"(def x 1)"}` then
 `eval {"code":"(inc x)"}` returns `2`. Each tool returns the nREPL result as
 JSON text; read `status` for success vs error.
@@ -32,6 +32,16 @@ nautilos down
 The daemon is keyed by the working directory, so run commands from the project
 directory. Every command prints one JSON object.
 
+## Code that reads input
+
+Evaluated code that reads input (`read-line`, `getline`) blocks until input
+arrives over nREPL. Prefer pre-supplying it with the eval:
+`nautilos eval '(read-line)' --input hi` (MCP: the eval tool's `input`
+parameter). If an eval hangs, `nautilos status` reporting `need-input: true`
+means it awaits input: answer with `nautilos stdin "text"` from another shell
+(or the `stdin` tool), or send end-of-input with `nautilos stdin` (no text).
+Reserve `interrupt` for actual runaway evals.
+
 ## Prerequisite and configuration
 
 `nautilos` is a client; the project must already run an nREPL server, started
@@ -48,5 +58,6 @@ Eval results carry `value` and `values`, `out`/`err`, `status` (`["done"]`,
 `["eval-error","done"]`, `["interrupted","done"]`), `session`, `ns`, and on error
 `ex`/`root-ex`. `lookup`/`complete`/`describe`/`ls-sessions` add `info`,
 `completions`, `ops`/`versions`, `sessions`. Portable ops are `eval`, `describe`,
-`load-file`; `lookup`, `complete`, and `interrupt` vary by server, so run
-`describe` first when unsure what a server supports.
+`load-file`; `lookup`, `complete`, `interrupt`, and `stdin` vary by server
+(babashka lacks `stdin`), so run `describe` first when unsure what a server
+supports.

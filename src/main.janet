@@ -33,10 +33,23 @@
     (string (file/read stdin :all))
     a))
 
+(defn- read-input
+  "Input to deliver: the first positional, or all of this process's stdin when
+  it is `-` (lets an agent pipe multi-line input). An absent positional is an
+  empty payload, which signals end-of-input to the server."
+  [pos]
+  (def a (first pos))
+  (cond
+    (nil? a) ""
+    (= a "-") (string (file/read stdin :all))
+    a))
+
 (defn- usage
   []
   (eprint "usage: nautilos <command> [args] [--host H] [--port P]")
-  (eprint "commands: eval lookup complete load-file describe ls-sessions interrupt up down status daemon mcp"))
+  (eprint "commands: eval lookup complete load-file describe ls-sessions interrupt stdin up down status daemon mcp")
+  (eprint "  eval [code|-] [--input TEXT]   pre-supply input to code that reads it")
+  (eprint "  stdin [text|-]                 answer a blocked eval; no text sends end-of-input"))
 
 (defn main
   [&]
@@ -59,7 +72,9 @@
     "status" (cli/print-json (if (cli/alive?)
                                (cli/send-op {:op "status"})
                                @{:ok true :running false}))
-    "eval" (client-op {:op "eval" :code (read-code pos)})
+    "eval" (client-op (merge {:op "eval" :code (read-code pos)}
+                             (if-let [input (get flags "input")] {:input input} {})))
+    "stdin" (client-op {:op "stdin" :input (read-input pos)})
     "lookup" (client-op {:op "lookup" :sym (first pos)})
     "complete" (client-op {:op "complete" :prefix (or (first pos) "")})
     "describe" (client-op {:op "describe"})

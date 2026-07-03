@@ -45,6 +45,7 @@ CLI finds the port itself. Otherwise pass `--port <n>` (and `--host` if not
 | `describe`               | Ops and versions the server advertises.                                          |
 | `ls-sessions`            | Active sessions on the server.                                                   |
 | `interrupt`              | Cancel the eval currently running on the session.                                |
+| `stdin [text]`           | Deliver input to an eval blocked on reading; no text signals end-of-input.       |
 | `up` / `down` / `status` | Start, stop, or query the daemon for this project.                               |
 
 The daemon is keyed by the current directory, so separate projects (or servers
@@ -65,6 +66,21 @@ Every command prints one JSON object. Eval-shaped results carry:
 `ops`/`versions`, `sessions` respectively. Read `status` to tell success from an
 error; the eval still returns even when it errors.
 
+## Code that reads input
+
+Evaluated code that reads input (`read-line` in Clojure, `getline` in Janet)
+blocks until input arrives over nREPL, not from any terminal. Two ways to
+supply it:
+
+- **Pre-supply (preferred)**: when the code is known to read input, pass it with
+  the eval: `$NREPL eval '(read-line)' --input hi`. The server buffers it, so
+  the call completes in one step. A trailing newline is added if missing.
+  Input the code does not consume stays buffered and feeds the next read.
+- **Answer a blocked eval**: if an eval hangs, run `$NREPL status` from another
+  shell. `need-input: true` means it is waiting for input, not stuck: send
+  `$NREPL stdin "text"` to answer it, or `$NREPL stdin` (no text) for
+  end-of-input. Reserve `interrupt` for actual runaway evals.
+
 ## State persists
 
 Definitions accrue. `$NREPL eval '(def x 1)'` then `$NREPL eval '(inc x)'` in a
@@ -78,5 +94,6 @@ processes. Do not re-establish prior state on each call.
 - `down` when finished, or leave it: it is cheap and exits if the server
   connection drops.
 - Portable ops are `eval`, `clone`, `describe`, `load-file`. `lookup`,
-  `complete`, and `interrupt` semantics vary by server; if a server lacks one its
-  `status` reports it. Run `describe` first when unsure what a server supports.
+  `complete`, `interrupt`, and `stdin` semantics vary by server (babashka lacks
+  `stdin`); if a server lacks one its `status` reports it (e.g. `unknown-op`).
+  Run `describe` first when unsure what a server supports.

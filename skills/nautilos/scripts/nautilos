@@ -8,7 +8,7 @@
 #
 # Env overrides:
 #   CLAUDE_PLUGIN_ROOT  plugin root (set by Claude Code; falls back to the repo)
-#   NAUTILOS_VERSION    release tag to fetch, e.g. v0.2.2 (default: plugin.json)
+#   NAUTILOS_VERSION    release tag to fetch, e.g. v0.3.0 (default: plugin.json)
 set -eu
 
 root="${CLAUDE_PLUGIN_ROOT:-$(cd "$(dirname "$0")/../../.." && pwd)}"

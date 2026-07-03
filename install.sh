@@ -6,7 +6,7 @@
 #
 # Env overrides:
 #   NAUTILOS_BIN_DIR   install directory (default: $XDG_BIN_HOME or ~/.local/bin)
-#   NAUTILOS_VERSION   release tag to pin, e.g. v0.2.2 (default: latest)
+#   NAUTILOS_VERSION   release tag to pin, e.g. v0.3.0 (default: latest)
 set -eu
 
 repo="waddie/nautilos"

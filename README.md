@@ -31,7 +31,7 @@ Installs to `~/.local/bin` by default. Override with `NAUTILOS_BIN_DIR`, or pin 
 release with `NAUTILOS_VERSION`:
 
 ```sh
-NAUTILOS_BIN_DIR=/usr/local/bin NAUTILOS_VERSION=v0.2.2 \
+NAUTILOS_BIN_DIR=/usr/local/bin NAUTILOS_VERSION=v0.3.0 \
   curl -fsSL https://raw.githubusercontent.com/waddie/nautilos/main/install.sh | sh
 ```
 
@@ -61,6 +61,15 @@ nautilos interrupt
 nautilos down
 ```
 
+Code that reads input takes it via the nREPL `stdin` op. Pre-supply it with the
+eval, or answer a blocked eval from another shell:
+
+```sh
+nautilos eval '(read-line)' --input hi   # buffered ahead: completes at once
+nautilos eval '(read-line)' &            # blocks; status shows need-input true
+nautilos stdin "hi"                      # unblocks it; bare `nautilos stdin` sends end-of-input
+```
+
 The port comes from a `.nrepl-port` file when present, or `--port <n>`. Every
 command prints one JSON object; read `status` for success or error. See
 [`skills/nautilos/SKILL.md`](skills/nautilos/SKILL.md) for the full command and
@@ -80,7 +89,7 @@ The same binary serves three integration surfaces over one held session.
 
 - **MCP** (Codex, opencode, Cursor, Zed, Claude Code, ...): run `nautilos mcp`, a
   JSON-RPC 2.0 stdio server exposing `eval`, `lookup`, `complete`, `load_file`,
-  `describe`, `interrupt`, `ls_sessions` as tools. Because the MCP process is
+  `describe`, `interrupt`, `stdin`, `ls_sessions` as tools. Because the MCP process is
   long-lived, it holds the session directly; no daemon is involved on this path.
 - **Prose** (`AGENTS.md`): for harnesses that read instructions rather than
   register tools.

@@ -21,3 +21,14 @@
   (when-let [n (get req "file-name")] (put o :file-name n))
   (when-let [p (get req "file-path")] (put o :file-path p))
   o)
+
+(defn stdin-input
+  "Normalise a `stdin` payload: append a trailing newline to non-empty input
+  that lacks one, since `getline`/`read-line` block until a line completes and
+  a newline-less payload would leave the eval stuck awaiting more input. Empty
+  input passes through untouched (it signals end-of-input)."
+  [input]
+  (def s (string input))
+  (if (or (empty? s) (string/has-suffix? "\n" s))
+    s
+    (string s "\n")))
