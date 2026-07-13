@@ -91,3 +91,8 @@ speak JSON-RPC to `nautilos mcp` (initialize, tools/list, tools/call).
 - Code that reads input blocks on a `need-input` status until a `stdin` op
   arrives. Pre-supplied input (`eval --input`) is sent ahead of the eval and
   buffered by the server; unconsumed input feeds the session's next read.
+- `session <id>` swaps the held session to an existing id (validated against
+  `ls-sessions` where the server supports it). Ids created on other connections
+  are only reachable on servers with server-scoped session registries
+  (nrepl-janet, Clojure nREPL, babashka); on the MCP path the attachment does
+  not survive a reconnect, which re-clones a fresh session.

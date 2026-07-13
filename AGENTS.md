@@ -11,10 +11,12 @@ There are two ways to drive it; pick whichever your harness has wired up.
 ## As MCP tools (preferred)
 
 If `nautilos` is registered as an MCP server, you get tools: `eval`, `lookup`,
-`complete`, `load_file`, `describe`, `interrupt`, `stdin`, `ls_sessions`. The server holds
-one session for the whole session, so `eval {"code":"(def x 1)"}` then
-`eval {"code":"(inc x)"}` returns `2`. Each tool returns the nREPL result as
-JSON text; read `status` for success vs error.
+`complete`, `load_file`, `describe`, `interrupt`, `stdin`, `ls_sessions`,
+`session`. The server holds one session for the whole session, so
+`eval {"code":"(def x 1)"}` then `eval {"code":"(inc x)"}` returns `2`. Each
+tool returns the nREPL result as JSON text; read `status` for success vs error.
+To work in a session that already exists on the server, find its id with
+`ls_sessions` and attach with `session {"id":"..."}`.
 
 ## As a CLI
 
@@ -25,6 +27,8 @@ nautilos lookup map
 nautilos complete map-
 nautilos load-file path/to/file
 nautilos describe
+nautilos ls-sessions           # ids of every session on the server
+nautilos session <id>          # attach to one; later commands run there
 nautilos interrupt
 nautilos down
 ```

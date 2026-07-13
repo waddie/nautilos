@@ -3,7 +3,7 @@
   :description "Agent-facing nREPL tool: a daemon plus thin CLI that lets an agent drive any nREPL server and keep accrued REPL state across calls."
   :author "Tom Waddington"
   :license "MIT"
-  :version "0.3.0"
+  :version "0.3.2"
   :dependencies ["https://github.com/waddie/nrepl-janet.git"])
 
 (declare-executable

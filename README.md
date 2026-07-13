@@ -31,7 +31,7 @@ Installs to `~/.local/bin` by default. Override with `NAUTILOS_BIN_DIR`, or pin 
 release with `NAUTILOS_VERSION`:
 
 ```sh
-NAUTILOS_BIN_DIR=/usr/local/bin NAUTILOS_VERSION=v0.3.0 \
+NAUTILOS_BIN_DIR=/usr/local/bin NAUTILOS_VERSION=v0.3.2 \
   curl -fsSL https://raw.githubusercontent.com/waddie/nautilos/main/install.sh | sh
 ```
 
@@ -57,6 +57,8 @@ nautilos eval '(+ x 1)'        # => value "42": state persisted across processes
 nautilos lookup map
 nautilos complete map-
 nautilos describe
+nautilos ls-sessions           # ids of every session on the server
+nautilos session <id>          # attach to one; later commands run there
 nautilos interrupt
 nautilos down
 ```
@@ -89,7 +91,7 @@ The same binary serves three integration surfaces over one held session.
 
 - **MCP** (Codex, opencode, Cursor, Zed, Claude Code, ...): run `nautilos mcp`, a
   JSON-RPC 2.0 stdio server exposing `eval`, `lookup`, `complete`, `load_file`,
-  `describe`, `interrupt`, `stdin`, `ls_sessions` as tools. Because the MCP process is
+  `describe`, `interrupt`, `stdin`, `ls_sessions`, `session` as tools. Because the MCP process is
   long-lived, it holds the session directly; no daemon is involved on this path.
 - **Prose** (`AGENTS.md`): for harnesses that read instructions rather than
   register tools.

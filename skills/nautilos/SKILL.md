@@ -44,6 +44,7 @@ CLI finds the port itself. Otherwise pass `--port <n>` (and `--host` if not
 | `load-file <path>`       | Evaluate a file's contents with its name for error locations.                    |
 | `describe`               | Ops and versions the server advertises.                                          |
 | `ls-sessions`            | Active sessions on the server.                                                   |
+| `session [id]`           | Attach to an existing session id from `ls-sessions`; no id reports the current.  |
 | `interrupt`              | Cancel the eval currently running on the session.                                |
 | `stdin [text]`           | Deliver input to an eval blocked on reading; no text signals end-of-input.       |
 | `up` / `down` / `status` | Start, stop, or query the daemon for this project.                               |
@@ -86,6 +87,12 @@ supply it:
 Definitions accrue. `$NREPL eval '(def x 1)'` then `$NREPL eval '(inc x)'` in a
 later call returns `2`: the daemon kept the session alive between the two
 processes. Do not re-establish prior state on each call.
+
+The daemon clones its own fresh session at startup. To work in a session that
+already exists (an editor's, or a previous daemon's on a server that keeps
+sessions across connections), find its id with `ls-sessions` and run
+`$NREPL session <id>`; later commands run there until you switch again.
+`status` shows the currently held session.
 
 ## Lifecycle and portability
 

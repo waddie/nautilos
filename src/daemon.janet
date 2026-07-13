@@ -53,6 +53,21 @@
     "describe" (with-session (nc/describe conn) session)
     "ls-sessions" (with-session (nc/ls-sessions conn) session)
 
+    # Attach to an existing session id (see ls-sessions); without an id, report
+    # the current one. Refused while an eval is in flight: an interrupt after
+    # the switch would target the new session and strand the running eval.
+    "session"
+    (if-let [id (get req "id")]
+      (do
+        (when (in state :busy)
+          (error "eval in flight; interrupt or wait before switching sessions"))
+        # nil means the server lacks ls-sessions: trust the caller's id.
+        (when (false? (nc/session-exists? conn id))
+          (errorf "no such session: %s" id))
+        (put state :session id)
+        @{:ok true :session id :previous session})
+      @{:ok true :session session})
+
     # No interrupt-id: the server cancels whatever eval is running on the session.
     "interrupt" (with-session (nc/call conn {:op "interrupt" :session session}) session)
 

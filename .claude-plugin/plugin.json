@@ -1,6 +1,6 @@
 {
   "name": "nautilos",
-  "version": "0.3.0",
+  "version": "0.3.2",
   "description": "Agent-facing nREPL tool. A small native daemon plus CLI lets an agent evaluate code in any nREPL server (Clojure, babashka, Janet, Steel, basilisp, ...) and keep accrued REPL state across calls.",
   "author": {
     "name": "Tom Waddington"

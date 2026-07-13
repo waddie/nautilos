@@ -47,9 +47,10 @@
 (defn- usage
   []
   (eprint "usage: nautilos <command> [args] [--host H] [--port P]")
-  (eprint "commands: eval lookup complete load-file describe ls-sessions interrupt stdin up down status daemon mcp")
+  (eprint "commands: eval lookup complete load-file describe ls-sessions session interrupt stdin up down status daemon mcp")
   (eprint "  eval [code|-] [--input TEXT]   pre-supply input to code that reads it")
-  (eprint "  stdin [text|-]                 answer a blocked eval; no text sends end-of-input"))
+  (eprint "  stdin [text|-]                 answer a blocked eval; no text sends end-of-input")
+  (eprint "  session [id]                   attach to an existing session (see ls-sessions); no id reports current"))
 
 (defn main
   [&]
@@ -79,6 +80,8 @@
     "complete" (client-op {:op "complete" :prefix (or (first pos) "")})
     "describe" (client-op {:op "describe"})
     "ls-sessions" (client-op {:op "ls-sessions"})
+    "session" (client-op (merge {:op "session"}
+                                (if-let [id (first pos)] {:id id} {})))
     "interrupt" (client-op {:op "interrupt"})
     "load-file" (let [path (first pos)]
                   (client-op {:op "load-file"

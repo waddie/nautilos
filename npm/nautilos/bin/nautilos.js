@@ -16,7 +16,7 @@ if (!os || !arch) {
   console.error(
     `nautilos: unsupported platform ${process.platform}-${process.arch}; ` +
       "prebuilt binaries cover darwin/linux on arm64/x64. Build from source: " +
-      "https://github.com/waddie/nautilos"
+      "https://github.com/waddie/nautilos",
   );
   process.exit(1);
 }
@@ -30,7 +30,7 @@ try {
   console.error(
     `nautilos: the ${pkg} package is not installed.\n` +
       "It is an optional dependency selected by your OS/arch. If it was skipped, " +
-      "reinstall without --no-optional (e.g. npm install -g @waddie/nautilos)."
+      "reinstall without --no-optional (e.g. npm install -g @waddie/nautilos).",
   );
   process.exit(1);
 }

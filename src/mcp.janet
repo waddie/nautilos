@@ -28,7 +28,7 @@
 # elicitation).
 (def- supported-protocol-versions ["2025-06-18" "2025-03-26" "2024-11-05"])
 # Keep in sync with project.janet; the release workflow checks they agree.
-(def- server-version "0.3.0")
+(def- server-version "0.3.2")
 
 (defn- log [& xs] (eprint ;xs))
 
@@ -124,7 +124,11 @@
                   :properties {:input {:type "string" :description "Input text; a trailing newline is added if missing."}}}}
    {:name "ls_sessions"
     :description "List active sessions on the nREPL server."
-    :inputSchema {:type "object" :properties {}}}])
+    :inputSchema {:type "object" :properties {}}}
+   {:name "session"
+    :description "Attach to an existing session id (from ls_sessions); later calls run there. Without id, reports the current session. The attachment does not survive a reconnect after the server connection drops."
+    :inputSchema {:type "object"
+                  :properties {:id {:type "string" :description "Session id to attach to."}}}}])
 
 (defn- run-tool
   [state name args]
@@ -148,6 +152,14 @@
     "interrupt" (nc/call conn {:op "interrupt" :session session})
     "stdin" (nc/send-stdin conn session (opts/stdin-input (get args "input" "")))
     "ls_sessions" (nc/ls-sessions conn)
+    "session" (if-let [id (get args "id")]
+                (do
+                  # nil means the server lacks ls-sessions: trust the caller's id.
+                  (when (false? (nc/session-exists? conn id))
+                    (errorf "no such session: %s" id))
+                  (put state :session id)
+                  @{:ok true :session id :previous session})
+                @{:ok true :session session})
     (errorf "unknown tool: %s" name)))
 
 (defn- errored?
