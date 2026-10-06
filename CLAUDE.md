@@ -57,7 +57,8 @@ The real nREPL client lives in `nrepl-janet` as `nrepl/client` (the multiplexing
 layer: per-request `:id`, a reader fiber routing responses to per-id channels,
 merged results, write lock, `interrupt`, `.nrepl-port` discovery). Anything
 useful to any client author belongs there, not here. `project.janet` pins the
-git dependency; the published library must include that client layer.
+git dependency to a release tag (release builds fetch exactly that tag); to pick
+up a new nrepl-janet release, bump `:tag` and rerun `jpm deps`.
 
 ## Build and verify
 
