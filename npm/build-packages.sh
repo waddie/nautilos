@@ -3,7 +3,7 @@
 #
 #   npm/build-packages.sh <version> <artifacts-dir> <out-dir>
 #
-# <version>        semver without a leading v, e.g. 0.3.3
+# <version>        semver without a leading v, e.g. 0.3.4
 # <artifacts-dir>  holds the release binaries named nautilos-<os>-<arch>
 # <out-dir>        emptied and filled with one directory per package:
 #                    <out>/nautilos                 -> @waddie/nautilos (meta)
