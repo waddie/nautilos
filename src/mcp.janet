@@ -28,7 +28,7 @@
 # elicitation).
 (def- supported-protocol-versions ["2025-06-18" "2025-03-26" "2024-11-05"])
 # Keep in sync with project.janet; the release workflow checks they agree.
-(def- server-version "0.3.5")
+(def- server-version "0.3.6")
 
 (defn- log [& xs] (eprint ;xs))
 
